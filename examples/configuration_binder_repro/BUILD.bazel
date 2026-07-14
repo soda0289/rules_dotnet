@@ -1,0 +1,58 @@
+load(
+    "@rules_dotnet//dotnet:defs.bzl",
+    "csharp_binary",
+)
+
+# Minimal reproduction of https://github.com/bazel-contrib/rules_dotnet/issues/467
+#
+# The Microsoft.Extensions.Configuration.Binder.SourceGeneration.dll analyzer is
+# shipped by BOTH:
+#   1. the "web" targeting pack (Microsoft.AspNetCore.App.Ref), pulled in via
+#      project_sdk = "web", and
+#   2. the Microsoft.Extensions.Configuration.Binder NuGet package (a direct dep).
+#
+# IMPORTANT - the NuGet version must be GREATER than the version the "web"
+# framework already provides. rules_dotnet's collect_compile_info elides a
+# framework-provided package *and its analyzers* when the requested version is
+# not newer than the framework's (see the targeting_pack_overrides entry
+# "Microsoft.Extensions.Configuration.Binder|9.0.0" on aspnetcore.app.ref). That
+# is why this uses 9.0.17 (the version shipped with the net9.0 ASP.NET Core
+# framework, which is > the 9.0.0 override floor). With 9.0.0 the package would
+# be dropped entirely and the bug would NOT reproduce.
+#
+# rules_dotnet passes both copies to csc via separate /analyzer: flags (they are
+# distinct Bazel Files with the same basename, so depsets cannot dedupe them).
+# The source generator therefore runs twice and emits the InterceptsLocationAttribute
+# type twice into the assembly, which fails with:
+#   error CS0433: The type 'InterceptsLocationAttribute' exists in both
+#   '<asm>' and '<asm>'
+#
+# bazel build //configuration_binder_repro:configuration_binder_repro
+csharp_binary(
+    name = "configuration_binder_repro",
+    srcs = ["Program.cs"],
+    project_sdk = "web",
+    target_frameworks = ["net9.0"],
+    deps = [
+        "@paket.example_deps//microsoft.extensions.configuration.binder",
+    ],
+)
+
+# Same target, but works around the bug with the excluded_analyzers attribute
+# added in https://github.com/bazel-contrib/rules_dotnet/pull/549. Excluding the
+# duplicated generator by file name leaves exactly one copy (matching what MSBuild
+# does by default), so the build succeeds.
+#
+# bazel build //configuration_binder_repro:configuration_binder_fixed
+csharp_binary(
+    name = "configuration_binder_fixed",
+    srcs = ["Program.cs"],
+    project_sdk = "web",
+    target_frameworks = ["net9.0"],
+    excluded_analyzers = [
+        "Microsoft.Extensions.Configuration.Binder.SourceGeneration.dll",
+    ],
+    deps = [
+        "@paket.example_deps//microsoft.extensions.configuration.binder",
+    ],
+)
