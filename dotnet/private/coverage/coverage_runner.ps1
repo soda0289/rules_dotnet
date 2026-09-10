@@ -111,24 +111,8 @@ $rawLcov = Join-Path $env:COVERAGE_DIR 'coverlet.dat'
 New-Item -ItemType Directory -Path $env:COVERAGE_DIR -Force | Out-Null
 
 # --targetargs is a single string that the coverage tool re-parses into an
-# argument list, so paths containing spaces would need quoting inside it. They
-# cannot be quoted here: Windows PowerShell does not escape embedded double
-# quotes when building a native command line, so the child receives the pieces
-# as separate arguments. ($PSNativeCommandArgumentPassing fixes this, but it is
-# PowerShell 7.3+ and this runs under powershell.exe.)
-#
-# Bazel's output paths do not contain spaces in practice, so leave the paths
-# unquoted and fail loudly rather than silently mis-parsing if that ever changes.
-foreach ($path in @($stage, $testDll)) {
-    if ($path -match '\s') {
-        Write-Error ("coverage: '$path' contains a space. The coverage tool's " +
-            '--targetargs cannot carry quoted paths through Windows PowerShell, so ' +
-            'coverage cannot be collected from a path with spaces. Move the Bazel ' +
-            'output base somewhere without spaces (--output_user_root).')
-        exit 1
-    }
-}
-$targetArgs = "exec --additionalprobingpath $stage $testDll"
+# argument list, so the paths inside it have to be quoted.
+$targetArgs = 'exec --additionalprobingpath "{0}" "{1}"' -f $stage, $testDll
 
 $toolArgs = New-Object System.Collections.Generic.List[string]
 if ($needsDotnetExec) { $toolArgs.Add('exec'); $toolArgs.Add($tool) }
@@ -149,12 +133,51 @@ $toolArgs.AddRange([string[]]@(
 ))
 foreach ($extra in $extraArgs) { $toolArgs.Add($extra) }
 
-if ($needsDotnetExec) {
-    & $dotnet $toolArgs.ToArray()
-} else {
-    & $tool $toolArgs.ToArray()
+# Windows PowerShell does not escape embedded double quotes when it builds a
+# native command line, so passing --targetargs through its argument handling
+# splits it into separate arguments. Build the command line here instead and
+# hand it to ProcessStartInfo verbatim. (.Net Framework has no ArgumentList,
+# which would do this for us; that is .Net Core only.)
+function Format-NativeArg([string] $value) {
+    if ($value.Length -gt 0 -and $value -notmatch '[ \t"]') { return $value }
+
+    $sb = New-Object System.Text.StringBuilder
+    [void] $sb.Append('"')
+    $backslashes = 0
+    foreach ($ch in $value.ToCharArray()) {
+        if ($ch -eq '\') {
+            $backslashes++
+        } elseif ($ch -eq '"') {
+            # Backslashes before a quote are doubled, then the quote is escaped.
+            [void] $sb.Append('\' * ($backslashes * 2 + 1))
+            [void] $sb.Append('"')
+            $backslashes = 0
+        } else {
+            if ($backslashes -gt 0) { [void] $sb.Append('\' * $backslashes) }
+            [void] $sb.Append($ch)
+            $backslashes = 0
+        }
+    }
+    # Backslashes before the closing quote are doubled so they stay literal.
+    if ($backslashes -gt 0) { [void] $sb.Append('\' * ($backslashes * 2)) }
+    [void] $sb.Append('"')
+    return $sb.ToString()
 }
-$status = $LASTEXITCODE
+
+if ($needsDotnetExec) { $exe = $dotnet } else { $exe = $tool }
+$commandLine = (($toolArgs | ForEach-Object { Format-NativeArg $_ }) -join ' ')
+
+if (-not [string]::IsNullOrEmpty($env:VERBOSE_COVERAGE)) {
+    Write-Host "coverage: $exe $commandLine"
+}
+
+$psi = New-Object System.Diagnostics.ProcessStartInfo
+$psi.FileName = $exe
+$psi.Arguments = $commandLine
+$psi.UseShellExecute = $false
+$process = [System.Diagnostics.Process]::Start($psi)
+$process.WaitForExit()
+$status = $process.ExitCode
 if ($status -ne 0) { exit $status }
 
 if (-not (Test-Path -LiteralPath $rawLcov)) {
