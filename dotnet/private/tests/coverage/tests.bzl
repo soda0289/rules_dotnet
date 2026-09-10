@@ -92,8 +92,17 @@ def _manifest_test_impl(ctx):
     # --instrument_test_targets default.
     asserts.true(
         env,
-        len([line for line in lines if "coverage_test" in line]) == 0,
+        len([line for line in lines if line.startswith("F ") and "coverage_test" in line]) == 0,
         "the test assembly should not be staged for instrumentation, got {}".format(lines),
+    )
+
+    # A target whose files are a single DLL has to be invoked via `dotnet exec`.
+    # Bazel gives any single-output rule a files_to_run.executable, so this
+    # guards against mistaking such a target for a real launcher.
+    asserts.true(
+        env,
+        "X 1" in lines,
+        "a DLL-shaped coverage tool should be marked as needing `dotnet exec`, got {}".format(lines),
     )
 
     # NUnit comes from NuGet and carries no rules_dotnet-produced PDB, so it must

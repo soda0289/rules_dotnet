@@ -104,7 +104,7 @@ def _coverage_instrumented_assemblies(transitive_runtime_deps):
             files.append(f)
     return files
 
-def _coverage_tool_invocation(ctx, is_windows):
+def _coverage_tool_invocation(ctx):
     """How to locate and invoke the configured coverage tool.
 
     Two target shapes are accepted:
@@ -116,18 +116,24 @@ def _coverage_tool_invocation(ctx, is_windows):
 
     Args:
         ctx: Bazel build ctx.
-        is_windows: Whether the launcher being generated is the batch one.
 
     Returns:
-        A tuple of (rlocation path of the tool, command prefix that invokes it).
-        The prefix is shell-specific: each launcher resolves the rlocation path
-        into a variable of its own before the prefix is used, because batch has no
-        inline command substitution.
+        A tuple of (rlocation path of the tool, POSIX command prefix that invokes
+        it, whether it needs to be run via `dotnet exec`). The prefix is only used
+        by the shell launcher, which resolves the rlocation path into a variable
+        of its own first; the Windows runner takes the path and the flag instead
+        and builds an argument array.
     """
     tool = ctx.attr._coverage_tool[DefaultInfo]
 
-    if tool.files_to_run and tool.files_to_run.executable:
-        tool_file = tool.files_to_run.executable
+    # Bazel populates files_to_run.executable for any rule with a single output,
+    # so "has an executable" is not enough to tell a real launcher from a
+    # filegroup wrapping one DLL. A managed assembly always has to go through
+    # `dotnet exec`, so treat a .dll as the DLL case regardless.
+    executable = tool.files_to_run.executable if tool.files_to_run else None
+
+    if executable and executable.extension != "dll":
+        tool_file = executable
         needs_dotnet_exec = False
     else:
         dlls = [f for f in tool.files.to_list() if f.extension == "dll"]
@@ -140,12 +146,9 @@ def _coverage_tool_invocation(ctx, is_windows):
         tool_file = dlls[0]
         needs_dotnet_exec = True
 
-    if is_windows:
-        invocation = "\"!dotnet_executable!\" exec \"!coverage_tool!\"" if needs_dotnet_exec else "\"!coverage_tool!\""
-    else:
-        invocation = "\"$dotnet\" exec \"$coverage_tool\"" if needs_dotnet_exec else "\"$coverage_tool\""
+    invocation = "\"$dotnet\" exec \"$coverage_tool\"" if needs_dotnet_exec else "\"$coverage_tool\""
 
-    return to_rlocation_path(ctx, tool_file), invocation
+    return to_rlocation_path(ctx, tool_file), invocation, needs_dotnet_exec
 
 def _create_launcher(ctx, runfiles, executable, runtime_provider = None, transitive_runtime_deps = None):
     runtime = get_toolchain(ctx).runtime
@@ -164,16 +167,30 @@ def _create_launcher(ctx, runfiles, executable, runtime_provider = None, transit
     if use_coverage:
         instrumented = _coverage_instrumented_assemblies(transitive_runtime_deps)
 
-        # The set of assemblies to instrument is known at analysis time, so it is
-        # written out here rather than discovered by scanning the runfiles tree at
-        # test time. Two kinds of line:
+        coverage_tool_path, coverage_invocation, needs_dotnet_exec = _coverage_tool_invocation(ctx)
+        extra_args = ctx.attr._coverage_tool_args[BuildSettingInfo].value
+
+        # Everything the launchers need, computed here rather than discovered at
+        # test time:
         #
+        #   N <rlocation path>   the dotnet host
+        #   E <rlocation path>   the test assembly
+        #   T <rlocation path>   the coverage tool
+        #   X <0|1>              whether the tool runs via `dotnet exec`
+        #   A <arg>              an extra argument for the tool
         #   F <rlocation path>   a file to stage (an assembly or its PDB)
-        #   D <relative dir>     a staged directory to hand to --include-directory
+        #   D <relative dir>     a staged directory for --include-directory
         #
-        # The directories are derived and deduplicated here rather than in the
-        # launchers, because doing it in Windows batch is genuinely painful.
-        lines = []
+        # The Windows runner takes all of it from this file so that no path has to
+        # survive cmd quoting. The POSIX launcher gets N/E/T/A by template
+        # substitution and reads only the F and D lines, ignoring the rest.
+        # Directories are deduplicated here so neither launcher has to do it.
+        lines = [
+            "N {}".format(to_rlocation_path(ctx, runtime.files_to_run.executable)),
+            "E {}".format(to_rlocation_path(ctx, executable)),
+            "T {}".format(coverage_tool_path),
+            "X {}".format("1" if needs_dotnet_exec else "0"),
+        ] + ["A {}".format(arg) for arg in extra_args]
         seen_dirs = {}
         for f in instrumented:
             rlocation_path = to_rlocation_path(ctx, f)
@@ -196,15 +213,15 @@ def _create_launcher(ctx, runfiles, executable, runtime_provider = None, transit
             content = "\n".join(lines) + "\n",
         )
 
-        coverage_tool_path, coverage_invocation = _coverage_tool_invocation(ctx, is_windows)
-
         substitutions["TEMPLATED_instrument_manifest"] = to_rlocation_path(ctx, instrument_manifest)
-        substitutions["TEMPLATED_coverage_tool"] = coverage_tool_path
-        substitutions["TEMPLATED_coverage_invocation"] = coverage_invocation
-        substitutions["TEMPLATED_coverage_extra_args"] = " ".join([
-            shell.quote(arg)
-            for arg in ctx.attr._coverage_tool_args[BuildSettingInfo].value
-        ])
+
+        if is_windows:
+            substitutions["TEMPLATED_coverage_runner"] = to_rlocation_path(ctx, ctx.file._coverage_runner_ps1)
+            runfiles.append(ctx.file._coverage_runner_ps1)
+        else:
+            substitutions["TEMPLATED_coverage_tool"] = coverage_tool_path
+            substitutions["TEMPLATED_coverage_invocation"] = coverage_invocation
+            substitutions["TEMPLATED_coverage_extra_args"] = " ".join([shell.quote(arg) for arg in extra_args])
 
         runfiles.append(instrument_manifest)
         runfiles.extend(instrumented)

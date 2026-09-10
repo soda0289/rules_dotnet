@@ -340,6 +340,11 @@ Defaults to an empty sentinel, meaning no coverage tool is configured and
         default = "//dotnet/private/coverage:coverage_launcher.sh.tpl",
         allow_single_file = True,
     ),
+    "_coverage_runner_ps1": attr.label(
+        doc = "The PowerShell script the Windows coverage launcher delegates to",
+        default = "//dotnet/private/coverage:coverage_runner.ps1",
+        allow_single_file = True,
+    ),
     "_coverage_launcher_bat": attr.label(
         doc = "A template file for the coverage launcher on Windows",
         default = "//dotnet/private/coverage:coverage_launcher.bat.tpl",
