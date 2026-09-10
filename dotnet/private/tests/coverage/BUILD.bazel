@@ -1,0 +1,22 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load(":tests.bzl", "coverage_test_suite")
+
+# A stand-in for a real coverlet.console target. These tests only ever resolve it
+# at analysis time, so it needs to satisfy the "exactly one DLL" half of the
+# coverage_tool contract and nothing more.
+filegroup(
+    name = "fake_coverage_tool",
+    srcs = ["fake_coverage_tool.dll"],
+)
+
+coverage_test_suite(name = "coverage_test_suite")
+
+bzl_library(
+    name = "tests",
+    srcs = ["tests.bzl"],
+    visibility = ["//dotnet:__subpackages__"],
+    deps = [
+        "//dotnet:defs",
+        "@bazel_skylib//lib:unittest",
+    ],
+)

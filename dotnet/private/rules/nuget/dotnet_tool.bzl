@@ -2,6 +2,14 @@
 
 load("//dotnet/private:common.bzl", "get_highest_compatible_target_framework", "get_toolchain", "to_rlocation_path")
 
+DotnetToolEntrypointInfo = provider(
+    doc = "The managed entry point of a .Net tool, for callers that need to run it " +
+          "without going through the generated launcher script.",
+    fields = {
+        "entrypoint": "string: The rlocation path of the tool's entry point DLL",
+    },
+)
+
 DotnetToolInfo = provider(
     doc = "Provider for grouping .NET tools by target framework.",
     fields = {
@@ -97,6 +105,11 @@ def _dotnet_tool_impl(ctx):
             executable = launcher,
             runfiles = runfiles,
         ),
+        # The launcher escapes the arguments it forwards -- on Windows it doubles
+        # backslashes and quotes -- which corrupts any argument that contains
+        # them. Expose the entry point so a caller needing exact argument passing
+        # can run `dotnet exec` on it directly.
+        DotnetToolEntrypointInfo(entrypoint = executable),
     ]
 
 dotnet_tool = rule(
