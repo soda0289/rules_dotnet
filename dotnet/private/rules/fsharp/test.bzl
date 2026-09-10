@@ -11,7 +11,7 @@ load(
     "get_toolchain",
     "is_debug",
 )
-load("//dotnet/private/rules/common:attrs.bzl", "FSHARP_BINARY_COMMON_ATTRS")
+load("//dotnet/private/rules/common:attrs.bzl", "FSHARP_TEST_ATTRS")
 load("//dotnet/private/rules/common:binary.bzl", "build_binary")
 load("//dotnet/private/rules/fsharp/actions:fsharp_assembly.bzl", "AssemblyAction")
 load("//dotnet/private/transitions:tfm_transition.bzl", "tfm_transition")
@@ -59,7 +59,7 @@ def _fsharp_test_impl(ctx):
 fsharp_test = rule(
     _fsharp_test_impl,
     doc = """Compile a F# executable and runs it as a test""",
-    attrs = FSHARP_BINARY_COMMON_ATTRS,
+    attrs = FSHARP_TEST_ATTRS,
     test = True,
     toolchains = [
         "//dotnet:toolchain_type",

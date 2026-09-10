@@ -1,8 +1,49 @@
-load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_list_flag")
 
 # A flag controlling if strict dependencies are enforced or not.
 bool_flag(
     name = "strict_deps",
     build_setting_default = True,
+    visibility = ["//visibility:public"],
+)
+
+# Sentinel used as the default for the `coverage_tool` flag below. An empty
+# filegroup means "no coverage tool configured", which the test rules detect and
+# fall back to building/running exactly as they would without coverage.
+filegroup(
+    name = "no_coverage_tool",
+    visibility = ["//visibility:public"],
+)
+
+# The tool used to collect code coverage when running `bazel coverage`.
+#
+# rules_dotnet does not bundle a coverage tool. Point this at a
+# coverlet.console-compatible target to enable coverage, e.g.
+#
+#     bazel coverage //... \
+#       --@rules_dotnet//dotnet/settings:coverage_tool=@my_nuget//coverlet.console/tools:coverlet
+#
+# See docs/README.md for the contract the target has to satisfy.
+label_flag(
+    name = "coverage_tool",
+    build_setting_default = ":no_coverage_tool",
+    visibility = ["//visibility:public"],
+)
+
+# Extra arguments appended to every coverage tool invocation, e.g.
+#
+#     --@rules_dotnet//dotnet/settings:coverage_tool_args=--exclude,[*]MyApp.Generated.*
+#
+# Deliberately not baked into the rules: which filters, attribute exclusions or
+# --skipautoprops a project wants is a per-project decision, and with a
+# user-provided tool this is the only way to reach options rules_dotnet does not
+# know about without waiting for a release.
+#
+# Do not pass --threshold here. A threshold violation makes the coverage tool
+# exit non-zero, which Bazel reports as a failing test, indistinguishable from a
+# real failure.
+string_list_flag(
+    name = "coverage_tool_args",
+    build_setting_default = [],
     visibility = ["//visibility:public"],
 )

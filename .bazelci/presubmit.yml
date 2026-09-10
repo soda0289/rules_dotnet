@@ -20,6 +20,9 @@ matrix:
       ["--@rules_dotnet//dotnet/settings:strict_deps=false"],
     ]
   e2e_working_directory: ["e2e/net8.0", "e2e/net9.0", "e2e/net10.0", "e2e/web_sdk"]
+  # Coverage has its own platform list: the Windows launcher is written but
+  # unverified, and the post-run assertions below are POSIX shell.
+  coverage_platform: ["ubuntu2004", "macos"]
 
 tasks:
   test_all:
@@ -62,3 +65,21 @@ tasks:
       - "//..."
     test_targets:
       - "//..."
+  coverage:
+    name: Coverage
+    bazel: ${{ bazel }}
+    platform: ${{ coverage_platform }}
+    working_directory: "examples"
+    coverage_targets:
+      - "//basic_csharp:lib_test"
+    coverage_flags:
+      - "--@rules_dotnet//dotnet/settings:coverage_tool=@paket.example_deps//coverlet.console/tools:coverlet"
+      - "--combined_report=lcov"
+    # An empty coverage report exits 0 at every layer -- the coverage tool, the
+    # LCOV merger and Bazel itself -- so a green `bazel coverage` proves nothing
+    # on its own. Assert the report actually attributes hits to the library
+    # source, which is what silently breaks if the SF: paths stop matching
+    # Bazel's coverage manifest.
+    post_shell_commands:
+      - "grep -q '^SF:basic_csharp/lib.cs$' bazel-out/_coverage/_coverage_report.dat"
+      - "grep -qE '^DA:[0-9]+,[1-9]' bazel-out/_coverage/_coverage_report.dat"

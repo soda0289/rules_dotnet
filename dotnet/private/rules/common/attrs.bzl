@@ -316,3 +316,51 @@ FSHARP_BINARY_COMMON_ATTRS = dicts.add(
     FSHARP_COMMON_ATTRS,
     BINARY_COMMON_ATTRS,
 )
+
+# These are attributes that are common across all the test rules, and carry the
+# plumbing needed to support `bazel coverage`.
+TEST_COMMON_ATTRS = {
+    "_coverage_tool": attr.label(
+        doc = """The coverlet.console-compatible tool used to collect coverage.
+
+Defaults to an empty sentinel, meaning no coverage tool is configured and
+`bazel coverage` runs the test without collecting anything. Override with
+`--@rules_dotnet//dotnet/settings:coverage_tool=<target>`.""",
+        default = "//dotnet/settings:coverage_tool",
+        # The tool runs alongside the test, on the target platform, so it must
+        # not be built for the exec platform.
+        cfg = "target",
+    ),
+    "_coverage_tool_args": attr.label(
+        doc = "Extra arguments appended to the coverage tool invocation",
+        default = "//dotnet/settings:coverage_tool_args",
+    ),
+    "_coverage_launcher_sh": attr.label(
+        doc = "A template file for the coverage launcher on Linux/MacOS",
+        default = "//dotnet/private/coverage:coverage_launcher.sh.tpl",
+        allow_single_file = True,
+    ),
+    "_coverage_launcher_bat": attr.label(
+        doc = "A template file for the coverage launcher on Windows",
+        default = "//dotnet/private/coverage:coverage_launcher.bat.tpl",
+        allow_single_file = True,
+    ),
+    "_lcov_merger": attr.label(
+        doc = "Bazel's LCOV merger, run by collect_coverage.sh after the test exits",
+        default = configuration_field(fragment = "coverage", name = "output_generator"),
+        executable = True,
+        cfg = "exec",
+    ),
+}
+
+# These are attributes that are common across all the test C# rules
+CSHARP_TEST_ATTRS = dicts.add(
+    CSHARP_BINARY_COMMON_ATTRS,
+    TEST_COMMON_ATTRS,
+)
+
+# These are attributes that are common across all the test F# rules
+FSHARP_TEST_ATTRS = dicts.add(
+    FSHARP_BINARY_COMMON_ATTRS,
+    TEST_COMMON_ATTRS,
+)

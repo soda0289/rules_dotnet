@@ -24,6 +24,15 @@ def build_library(ctx, compile_action):
     return [
         compile_provider,
         runtime_provider,
+        # Libraries have to report their own sources and keep the walk going
+        # through `deps`, otherwise a test's coverage manifest would contain only
+        # the test's own sources and every library source would be filtered out
+        # of the merged report.
+        coverage_common.instrumented_files_info(
+            ctx,
+            source_attributes = ["srcs"],
+            dependency_attributes = ["deps", "data"],
+        ),
         DefaultInfo(
             files = depset(runtime_provider.libs + runtime_provider.xml_docs),
             default_runfiles = collect_transitive_runfiles(

@@ -3,6 +3,7 @@ group example_deps
     storage: none
     source https://api.nuget.org/v3/index.json
 
+    nuget coverlet.console 6.0.4
     nuget Expecto 9.0.4
     nuget FSharp.Core 9.0.300
     nuget FSharp.Data 5.0.2

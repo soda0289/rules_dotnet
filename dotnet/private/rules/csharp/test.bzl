@@ -11,7 +11,7 @@ load(
     "get_toolchain",
     "is_debug",
 )
-load("//dotnet/private/rules/common:attrs.bzl", "CSHARP_BINARY_COMMON_ATTRS")
+load("//dotnet/private/rules/common:attrs.bzl", "CSHARP_TEST_ATTRS")
 load("//dotnet/private/rules/common:binary.bzl", "build_binary")
 load("//dotnet/private/rules/csharp/actions:csharp_assembly.bzl", "AssemblyAction")
 load("//dotnet/private/transitions:tfm_transition.bzl", "tfm_transition")
@@ -68,7 +68,7 @@ def _csharp_test_impl(ctx):
 csharp_test = rule(
     _csharp_test_impl,
     doc = """Compiles a C# executable and runs it as a test""",
-    attrs = CSHARP_BINARY_COMMON_ATTRS,
+    attrs = CSHARP_TEST_ATTRS,
     test = True,
     toolchains = [
         "//dotnet:toolchain_type",

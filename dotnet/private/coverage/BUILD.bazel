@@ -1,0 +1,7 @@
+exports_files(
+    [
+        "coverage_launcher.sh.tpl",
+        "coverage_launcher.bat.tpl",
+    ],
+    visibility = ["//visibility:public"],
+)
