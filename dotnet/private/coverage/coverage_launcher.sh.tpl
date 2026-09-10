@@ -141,6 +141,14 @@ if [ ! -f "$raw_lcov" ]; then
   exit 1
 fi
 
+# Keep the tool's report exactly as it came out, before any rewriting. Bazel
+# deletes COVERAGE_DIR after the run, and when the normalization below does not
+# match what the tool emitted the result is an empty-but-successful report -- so
+# this copy is the only way to see what the SF: lines actually looked like.
+if [ -n "${TEST_UNDECLARED_OUTPUTS_DIR:-}" ]; then
+  cp "$raw_lcov" "$TEST_UNDECLARED_OUTPUTS_DIR/coverlet.raw.dat" 2>/dev/null || true
+fi
+
 # Two rewrites are needed before Bazel can consume this:
 #
 #  1. rules_dotnet compiles with -pathmap:$PWD=. (see compiler_wrapper.sh), so
@@ -157,3 +165,11 @@ fi
 sed -e 's|^SF:\./|SF:|' -e '/^FN:/d' -e '/^FNDA:/d' -e '/^FNF:/d' -e '/^FNH:/d' \
   "$raw_lcov" > "$raw_lcov.tmp"
 mv "$raw_lcov.tmp" "$raw_lcov"
+
+# If nothing survived, say so. Bazel's merger drops sources it cannot match
+# against the coverage manifest and still exits 0, so without this the run looks
+# like a pass with no coverage in it.
+if ! grep -q '^SF:' "$raw_lcov"; then
+  echo >&2 "WARNING: the coverage report contains no source files after normalization."
+  echo >&2 "WARNING: the unnormalized report was saved as coverlet.raw.dat in the test outputs."
+fi

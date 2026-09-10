@@ -141,6 +141,12 @@ if not exist "!raw_lcov!" (
   exit /b 1
 )
 
+rem Keep the tool's report exactly as it came out, before any rewriting. Bazel
+rem deletes COVERAGE_DIR after the run, and when the normalization below does not
+rem match what the tool emitted the result is an empty-but-successful report --
+rem so this copy is the only way to see what the SF: lines actually looked like.
+if defined TEST_UNDECLARED_OUTPUTS_DIR copy /Y "!raw_lcov!" "%TEST_UNDECLARED_OUTPUTS_DIR%\coverlet.raw.dat" >nul 2>&1
+
 rem Three rewrites are needed before Bazel can consume this, and all of them are
 rem silent failures if skipped -- the merger drops unmatched sources and still
 rem exits 0:
@@ -167,6 +173,15 @@ if not "!errorlevel!"=="0" (
   exit /b 1
 )
 move /Y "!LCOV_OUT!" "!LCOV_IN!" >nul
+
+rem If nothing survived, say so. Bazel's merger drops sources it cannot match
+rem against the coverage manifest and still exits 0, so without this the run looks
+rem like a pass with no coverage in it.
+findstr /b /c:"SF:" "!LCOV_IN!" >nul 2>&1
+if errorlevel 1 (
+  echo>&2 WARNING: the coverage report contains no source files after normalization.
+  echo>&2 WARNING: the unnormalized report was saved as coverlet.raw.dat in the test outputs.
+)
 exit /b 0
 
 :stage_file
