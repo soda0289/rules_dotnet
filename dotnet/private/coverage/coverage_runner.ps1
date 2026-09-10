@@ -110,8 +110,25 @@ if ($staged -eq 0) {
 $rawLcov = Join-Path $env:COVERAGE_DIR 'coverlet.dat'
 New-Item -ItemType Directory -Path $env:COVERAGE_DIR -Force | Out-Null
 
-# One argument, built as a string but never re-quoted by a shell.
-$targetArgs = "exec --additionalprobingpath ""$stage"" ""$testDll"""
+# --targetargs is a single string that the coverage tool re-parses into an
+# argument list, so paths containing spaces would need quoting inside it. They
+# cannot be quoted here: Windows PowerShell does not escape embedded double
+# quotes when building a native command line, so the child receives the pieces
+# as separate arguments. ($PSNativeCommandArgumentPassing fixes this, but it is
+# PowerShell 7.3+ and this runs under powershell.exe.)
+#
+# Bazel's output paths do not contain spaces in practice, so leave the paths
+# unquoted and fail loudly rather than silently mis-parsing if that ever changes.
+foreach ($path in @($stage, $testDll)) {
+    if ($path -match '\s') {
+        Write-Error ("coverage: '$path' contains a space. The coverage tool's " +
+            '--targetargs cannot carry quoted paths through Windows PowerShell, so ' +
+            'coverage cannot be collected from a path with spaces. Move the Bazel ' +
+            'output base somewhere without spaces (--output_user_root).')
+        exit 1
+    }
+}
+$targetArgs = "exec --additionalprobingpath $stage $testDll"
 
 $toolArgs = New-Object System.Collections.Generic.List[string]
 if ($needsDotnetExec) { $toolArgs.Add('exec'); $toolArgs.Add($tool) }
