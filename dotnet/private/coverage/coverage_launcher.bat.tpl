@@ -75,16 +75,24 @@ rem merger to find it.
 if not defined COVERAGE goto :run_plain
 if not defined COVERAGE_DIR goto :run_plain
 
+rem Bazel's Windows runfiles manifest stores forward-slashed paths, and so does
+rem TEST_TMPDIR. cmd's builtins (copy, md, move, rd, findstr) treat "/" as a
+rem switch prefix rather than a separator and fail on such paths -- while "if
+rem exist" accepts them, which makes the failure look like a missing file. Every
+rem path handed to a builtin below is therefore backslash-normalized first.
 if not defined TEST_TMPDIR set "TEST_TMPDIR=%TEMP%"
 set "stage=%TEST_TMPDIR%\_rules_dotnet_coverage_stage"
+set "stage=!stage:/=\!"
 if exist "!stage!" rd /s /q "!stage!"
 md "!stage!"
 
 call :rlocation "TEMPLATED_instrument_manifest" instrument_manifest
+set "instrument_manifest=!instrument_manifest:/=\!"
 call :rlocation "TEMPLATED_coverage_tool" coverage_tool
 
 set "include_dirs="
 set "staged_any=0"
+set "staging_failed=0"
 
 rem The manifest holds "F <rlocation path>" lines for files to stage and
 rem "D <relative dir>" lines for the directories to hand to --include-directory.
@@ -99,6 +107,14 @@ for /F "usebackq tokens=1,* delims= " %%A in ("!instrument_manifest!") do (
   )
 )
 
+rem A partially staged tree would silently under-report coverage, so treat any
+rem staging failure as fatal rather than falling through to an uninstrumented run
+rem that passes with an empty report.
+if "!staging_failed!"=="1" (
+  echo>&2 ERROR: coverage staging failed; refusing to report partial coverage.
+  exit /b 1
+)
+
 rem Nothing to instrument (e.g. a test with no first-party library deps). Run the
 rem test normally rather than handing the host a probing path it would ignore.
 if "!staged_any!"=="0" goto :run_plain
@@ -108,8 +124,10 @@ rem runs the LCOV merger over COVERAGE_DIR and writes its result to
 rem COVERAGE_OUTPUT_FILE, so producing only the latter means the merger finds no
 rem input and overwrites it with an empty report. The ".dat" extension is
 rem required for the merger to pick the file up.
-set "raw_lcov=%COVERAGE_DIR%\coverlet.dat"
-if not exist "%COVERAGE_DIR%" md "%COVERAGE_DIR%"
+set "coverage_dir=%COVERAGE_DIR%"
+set "coverage_dir=!coverage_dir:/=\!"
+set "raw_lcov=!coverage_dir!\coverlet.dat"
+if not exist "!coverage_dir!" md "!coverage_dir!"
 
 rem --targetargs is a single string that the coverage tool re-parses. Quoting the
 rem inner paths with \" does not survive cmd: a doubled backslash makes \\ a
@@ -145,7 +163,11 @@ rem Keep the tool's report exactly as it came out, before any rewriting. Bazel
 rem deletes COVERAGE_DIR after the run, and when the normalization below does not
 rem match what the tool emitted the result is an empty-but-successful report --
 rem so this copy is the only way to see what the SF: lines actually looked like.
-if defined TEST_UNDECLARED_OUTPUTS_DIR copy /Y "!raw_lcov!" "%TEST_UNDECLARED_OUTPUTS_DIR%\coverlet.raw.dat" >nul 2>&1
+if defined TEST_UNDECLARED_OUTPUTS_DIR (
+  set "outputs_dir=%TEST_UNDECLARED_OUTPUTS_DIR%"
+  set "outputs_dir=!outputs_dir:/=\!"
+  copy /Y "!raw_lcov!" "!outputs_dir!\coverlet.raw.dat" >nul 2>&1
+)
 
 rem Three rewrites are needed before Bazel can consume this, and all of them are
 rem silent failures if skipped -- the merger drops unmatched sources and still
@@ -192,12 +214,15 @@ rem silently empty coverage report, which is the failure mode this whole design
 rem is trying to avoid.
 set "rel=%~1"
 call :rlocation "%rel%" src
+if defined src set "src=!src:/=\!"
 if not defined src (
   echo>&2 ERROR: coverage staging could not resolve %rel% in the runfiles manifest
+  set "staging_failed=1"
   exit /b 0
 )
 if not exist "!src!" (
   echo>&2 ERROR: coverage staging resolved %rel% to "!src!" which does not exist
+  set "staging_failed=1"
   exit /b 0
 )
 set "dest=%stage%\%rel:/=\%"
@@ -208,6 +233,7 @@ if not exist "!destdir!" md "!destdir!"
 copy /Y "!src!" "!dest!" >nul
 if not exist "!dest!" (
   echo>&2 ERROR: coverage staging failed to copy "!src!" to "!dest!"
+  set "staging_failed=1"
   exit /b 0
 )
 rem Runfiles can be read-only; coverlet rewrites the assembly in place.
