@@ -20,10 +20,10 @@ matrix:
       ["--@rules_dotnet//dotnet/settings:strict_deps=false"],
     ]
   e2e_working_directory: ["e2e/net8.0", "e2e/net9.0", "e2e/net10.0", "e2e/web_sdk"]
-  # Coverage runs on its own platform list because the post-run assertions below
-  # are POSIX shell. Windows coverage works and is verified by hand; wiring it
-  # into CI needs those assertions rewritten for cmd.
+  # Coverage gets its own platform lists because the post-run assertions differ
+  # per shell: grep on POSIX, findstr on Windows.
   coverage_platform: ["ubuntu2004", "macos"]
+  coverage_platform_windows: ["windows"]
 
 tasks:
   test_all:
@@ -84,3 +84,22 @@ tasks:
     post_shell_commands:
       - "grep -q '^SF:basic_csharp/lib.cs$' bazel-out/_coverage/_coverage_report.dat"
       - "grep -qE '^DA:[0-9]+,[1-9]' bazel-out/_coverage/_coverage_report.dat"
+  coverage_windows:
+    name: Coverage
+    bazel: ${{ bazel }}
+    platform: ${{ coverage_platform_windows }}
+    working_directory: "examples"
+    coverage_targets:
+      - "//basic_csharp:lib_test"
+    coverage_flags:
+      - "--@rules_dotnet//dotnet/settings:coverage_tool=@paket.example_deps//coverlet.console/tools:coverlet"
+      - "--combined_report=lcov"
+    # Same assertions as above, in findstr. Two differences from the grep form:
+    # /c: is a literal search string, so the anchors become /b and /e rather than
+    # ^ and $; and findstr has no "+" quantifier, so digit runs are spelled out.
+    # Both guard the same thing -- that source paths still match the coverage
+    # manifest, which on Windows additionally depends on rewriting the ".\"
+    # prefix and the backslashes that PDB documents carry.
+    post_shell_commands:
+      - "findstr /b /e /c:\"SF:basic_csharp/lib.cs\" bazel-out\\_coverage\\_coverage_report.dat"
+      - "findstr /r \"^DA:[0-9][0-9]*,[1-9]\" bazel-out\\_coverage\\_coverage_report.dat"
