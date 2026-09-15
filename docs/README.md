@@ -197,6 +197,7 @@ common --enable_platform_specific_config
 build:linux --experimental_output_paths=strip
 build:macos --experimental_output_paths=strip
 ```
+
 ## Code coverage
 
 `csharp_test` and `fsharp_test` support `bazel coverage`, producing LCOV that Bazel's
