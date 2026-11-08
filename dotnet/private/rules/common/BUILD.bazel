@@ -10,8 +10,10 @@ bzl_library(
         "//dotnet/private:common",
         "//dotnet/private:providers",
         "//dotnet/private/icu:settings",
+        "//dotnet/private/rules/nuget:dotnet_tool",
         "//dotnet/private/rules/ready_to_run",
         "@bazel_lib//lib:expand_make_vars",
+        "@bazel_skylib//lib:shell",
         "@bazel_skylib//rules:common_settings",
     ],
 )
@@ -59,6 +61,7 @@ bzl_library(
     deps = [
         ":static_web_assets",
         "//dotnet/private:common",
+        "//dotnet/private:providers",
         "//dotnet/private/rules/ready_to_run",
         "@bazel_skylib//rules:common_settings",
     ],
