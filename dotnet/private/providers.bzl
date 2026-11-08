@@ -210,3 +210,10 @@ DotnetApphostPackInfo = provider(
         "singlefilehost": "File: The singlefilehost file",
     },
 )
+
+DotnetCoverageInfo = provider(
+    doc = "The assemblies and PDBs `bazel coverage` instruments for a test that depends on a target.",
+    fields = {
+        "files": "depset[File]: The DLLs and PDBs of the target and of its transitive dependencies that `--instrumentation_filter` selects.",
+    },
+)
