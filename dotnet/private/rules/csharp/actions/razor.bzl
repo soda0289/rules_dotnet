@@ -77,6 +77,7 @@ def partition_srcs(srcs, label):
     compile_srcs = []
     razor_srcs = []
     scoped_css_srcs = []
+    xaml_srcs = []
     stray_css = []
     for src in srcs:
         if src.extension in _RAZOR_EXTENSIONS:
@@ -85,6 +86,8 @@ def partition_srcs(srcs, label):
             scoped_css_srcs.append(src)
         elif src.extension == "css":
             stray_css.append(src)
+        elif src.extension == "xaml":
+            xaml_srcs.append(src)
         else:
             compile_srcs.append(src)
 
@@ -102,6 +105,7 @@ def partition_srcs(srcs, label):
         compile = compile_srcs,
         razor = razor_srcs,
         scoped_css = scoped_css_srcs,
+        xaml = xaml_srcs,
     )
 
 def target_path(short_path, label):

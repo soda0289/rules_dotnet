@@ -1289,6 +1289,11 @@ def _resource_arg_format(file, target_label, out_dll, language):
     # the basename of the file.
     simple_resource_name = "{}.{}".format(out_dll[:-4], file.basename)
 
+    # WPF XAML `.g.resources` bundles are looked up by ResourceManager under
+    # `<AssemblyName>.g.resources`, which is already the file's basename.
+    if file.basename.endswith(".g.resources"):
+        return base_resource_fmt + "," + _quote_resource_name(file.basename, language)
+
     if file.owner != None and file.owner.repo_name != target_label.repo_name:
         # Fallback to the basename if the file comes from a different repository.
         resource_name = simple_resource_name

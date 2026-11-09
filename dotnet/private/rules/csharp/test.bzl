@@ -59,6 +59,7 @@ def _compile_action(ctx, tfm, toolchain):
         project_sdk = ctx.attr.project_sdk,
         root_namespace = ctx.attr.root_namespace,
         scoped_css_tool = ctx.attr._scoped_css_tool,
+        wpf_xaml_tool = ctx.attr._wpf_xaml_tool,
         allow_unsafe_blocks = ctx.attr.allow_unsafe_blocks,
         nullable = ctx.attr.nullable,
         run_analyzers = ctx.attr.run_analyzers,

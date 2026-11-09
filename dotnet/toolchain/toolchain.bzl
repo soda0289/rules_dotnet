@@ -137,6 +137,7 @@ def _dotnet_toolchain_impl(ctx):
         host_model = ctx.attr.host_model,
         razor_source_generators = ctx.attr.razor_source_generators,
         static_web_assets_tasks = ctx.attr.static_web_assets_tasks,
+        wpf_tasks = ctx.attr.wpf_tasks,
         msbuild_dlls = ctx.attr.msbuild_dlls,
         strict_deps = ctx.attr._strict_deps,
         invariant_globalization = ctx.attr._invariant_globalization,
@@ -224,6 +225,15 @@ Carries the scoped CSS implementation: `ComputeCssScope`, `RewriteCss` and
 Passed to `csc` with `/analyzer:` whenever a target has `.razor` or `.cshtml`
 sources. They ship inside the SDK, so their version follows the toolchain
 rather than the target framework, as it does under MSBuild.""",
+            mandatory = False,
+            allow_files = True,
+            cfg = "exec",
+        ),
+        "wpf_tasks": attr.label(
+            doc = """The `PresentationBuildTasks` assembly and its SDK dependencies.
+
+Carries the WPF XAML compilation tasks: `MarkupCompilePass1` and
+`ResourcesGenerator`.""",
             mandatory = False,
             allow_files = True,
             cfg = "exec",

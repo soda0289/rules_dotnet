@@ -7,12 +7,22 @@ bzl_library(
     deps = [
         ":razor",
         ":scoped_css",
+        ":wpf_xaml",
         "//dotnet/private:common",
         "//dotnet/private:nuget_version",
         "//dotnet/private:providers",
         "//dotnet/private/icu:settings",
         "//dotnet/private/sdk:packs",
         "@bazel_skylib//lib:dicts",
+    ],
+)
+
+bzl_library(
+    name = "wpf_xaml",
+    srcs = ["wpf_xaml.bzl"],
+    visibility = ["//dotnet:__subpackages__"],
+    deps = [
+        ":razor",
     ],
 )
 
