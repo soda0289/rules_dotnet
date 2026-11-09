@@ -141,6 +141,7 @@ def _dotnet_toolchain_impl(ctx):
         csharp_codestyle_analyzers = ctx.attr.csharp_codestyle_analyzers,
         web_sdk_analyzers = ctx.attr.web_sdk_analyzers,
         static_web_assets_tasks = ctx.attr.static_web_assets_tasks,
+        wpf_tasks = ctx.attr.wpf_tasks,
         msbuild_dlls = ctx.attr.msbuild_dlls,
         strict_deps = ctx.attr._strict_deps,
         invariant_globalization = ctx.attr._invariant_globalization,
@@ -252,6 +253,15 @@ rather than the target framework, as it does under MSBuild.""",
         ),
         "web_sdk_analyzers": attr.label(
             doc = """The ASP.NET Core and MVC analyzer assemblies shipped in `Sdks/Microsoft.NET.Sdk.Web/analyzers/cs`.""",
+            mandatory = False,
+            allow_files = True,
+            cfg = "exec",
+        ),
+        "wpf_tasks": attr.label(
+            doc = """The `PresentationBuildTasks` assembly and its SDK dependencies.
+
+Carries the WPF XAML compilation tasks: `MarkupCompilePass1` and
+`ResourcesGenerator`.""",
             mandatory = False,
             allow_files = True,
             cfg = "exec",

@@ -1,0 +1,40 @@
+load("//dotnet:defs.bzl", "csharp_binary", "csharp_library", "csharp_nunit_test")
+
+csharp_library(
+    name = "sample_card_lib",
+    srcs = [
+        "SampleCard.xaml",
+        "SampleCard.xaml.cs",
+    ],
+    project_sdk = "windowsdesktop",
+    root_namespace = "WpfXamlTest",
+    target_frameworks = ["net10.0"],
+)
+
+csharp_binary(
+    name = "sample_wpf_app",
+    srcs = [
+        "App.xaml",
+        "App.xaml.cs",
+    ],
+    project_sdk = "windowsdesktop",
+    root_namespace = "WpfXamlTest",
+    target_compatible_with = ["@platforms//os:windows"],
+    target_frameworks = ["net10.0"],
+    winexe = True,
+    deps = [":sample_card_lib"],
+)
+
+csharp_nunit_test(
+    name = "wpf_xaml_test",
+    srcs = ["WpfXamlTest.cs"],
+    env_inherit = [
+        "SYSTEMROOT",
+        "WINDIR",
+    ],
+    nullable = "enable",
+    project_sdk = "windowsdesktop",
+    target_compatible_with = ["@platforms//os:windows"],
+    target_frameworks = ["net10.0"],
+    deps = [":sample_card_lib"],
+)

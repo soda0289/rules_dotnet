@@ -198,6 +198,22 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
+# The tasks that compile WPF `.xaml` into `.g.cs` and `.g.resources` and pack `.baml`
+# into `<AssemblyName>.g.resources`, plus their SDK dependencies.
+filegroup(
+    name = "wpf_tasks",
+    srcs = glob(
+        [
+            "sdk/{sdk_version}/Sdks/Microsoft.NET.Sdk.WindowsDesktop/tools/**/PresentationBuildTasks.dll",
+            "sdk/{sdk_version}/System.CodeDom.dll",
+            "sdk/{sdk_version}/System.Reflection.MetadataLoadContext.dll",
+        ],
+        exclude = ["**/net472/**"],
+        allow_empty = True,
+    ),
+    visibility = ["//visibility:public"],
+)
+
 filegroup(
     name = "fsc_binary",
     # We glob both fsc.dll and fsc.exe for backwards compatibility
@@ -232,6 +248,7 @@ dotnet_toolchain(
     csharp_codestyle_analyzers = ":csharp_codestyle_analyzers",
     web_sdk_analyzers = ":web_sdk_analyzers",
     static_web_assets_tasks = ":static_web_assets_tasks",
+    wpf_tasks = ":wpf_tasks",
     msbuild_dlls = [":msbuild_framework", ":msbuild_utilities", ":msbuild_string_tools"],
     os = "{os}",
     sdk_version = "{sdk_version}",

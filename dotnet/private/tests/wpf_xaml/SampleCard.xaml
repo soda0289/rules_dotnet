@@ -1,0 +1,10 @@
+<UserControl x:Class="WpfXamlTest.SampleCard"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Width="240"
+             Height="120">
+    <StackPanel>
+        <TextBlock x:Name="TitleText" Text="Hello from WPF XAML!" />
+        <Button x:Name="ActionButton" Content="Click me" />
+    </StackPanel>
+</UserControl>

@@ -33,6 +33,7 @@ load(
 )
 load("//dotnet/private/rules/csharp/actions:scoped_css.bzl", "scoped_css_action")
 load("//dotnet/private/rules/csharp/actions:sdk_analyzers.bzl", "sdk_analyzer_compile_inputs")
+load("//dotnet/private/rules/csharp/actions:wpf_xaml.bzl", "wpf_xaml_action")
 load("//dotnet/private/sdk:packs.bzl", "BLAZORWASM_SDK", "uses_razor")
 
 def _write_internals_visible_to_csharp(actions, label_name, dll_name, others):
@@ -248,7 +249,8 @@ def AssemblyAction(
         enable_request_delegate_generator = "default",
         enable_configuration_binding_generator = "default",
         publish_trimmed = False,
-        analyzer_runtime_deps = []):
+        analyzer_runtime_deps = [],
+        wpf_xaml_tool = None):
     """Creates an action that runs the CSharp compiler with the specified inputs.
 
     This macro aims to match the [C# compiler](https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/compiler-options/listed-alphabetically), with the inputs mapping to compiler options.
@@ -309,6 +311,7 @@ def AssemblyAction(
         enable_configuration_binding_generator: MSBuild's `EnableConfigurationBindingGenerator`: `"true"`, `"false"`, or `"default"`.
         publish_trimmed: Whether a publish trims this assembly, MSBuild's `PublishTrimmed` or `PublishAot`.
         analyzer_runtime_deps: The NuGet packages an analyzer loads, which it also compiles against.
+        wpf_xaml_tool: The tool that compiles WPF `.xaml` files via `PresentationBuildTasks`.
     Returns:
         The compile and runtime providers, and the static web assets the compile
         generated.
@@ -466,6 +469,23 @@ def AssemblyAction(
     assembly_version_cs = _write_assembly_version_csharp(actions, target_name, assembly_name, version)
     if assembly_version_cs:
         srcs = srcs + [assembly_version_cs]
+
+    if partitioned.xaml:
+        wpf = wpf_xaml_action(
+            actions,
+            label = label,
+            out_dir = out_dir,
+            assembly_name = assembly_name,
+            root_namespace = root_namespace or assembly_name,
+            target = target,
+            xaml_srcs = partitioned.xaml,
+            refs = irefs,
+            framework_files = framework_files,
+            tool = wpf_xaml_tool,
+            toolchain = toolchain,
+        )
+        srcs = srcs + wpf.srcs
+        resources = list(resources) + [wpf.resources]
 
     out_dll = actions.declare_file("%s/%s.%s" % (out_dir, assembly_name, out_ext))
     out_iref = None
