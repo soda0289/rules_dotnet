@@ -23,6 +23,7 @@ load(
     "//dotnet/private:providers.bzl",
     "DotnetAssemblyCompileInfo",
     "DotnetAssemblyRuntimeInfo",
+    "DotnetCSharpAnalyzerInfo",
     "StaticWebAssetsInfo",
 )
 load("//dotnet/private/icu:settings.bzl", "globalization_env", "icu_wrapper_arguments")
@@ -478,6 +479,7 @@ def AssemblyAction(
     out_content_files = copy_content_to_dir(target_name, actions, is_windows, content_file_mappings, out_dir)
 
     if len(internals_visible_to) == 0 or is_analyzer:
+        compile_srcs = srcs
         _compile(
             actions,
             compiler_wrapper,
@@ -495,7 +497,7 @@ def AssemblyAction(
             irefs,
             framework_files,
             resources,
-            srcs,
+            compile_srcs,
             depset(compile_data, transitive = [transitive_compile_data]),
             subsystem_version,
             target,
@@ -530,6 +532,7 @@ def AssemblyAction(
             dll_name = assembly_name,
             others = internals_visible_to,
         )
+        compile_srcs = srcs + [internals_visible_to_cs]
 
         _compile(
             actions,
@@ -548,7 +551,7 @@ def AssemblyAction(
             irefs,
             framework_files,
             resources,
-            srcs + [internals_visible_to_cs],
+            compile_srcs,
             depset(compile_data, transitive = [transitive_compile_data]),
             subsystem_version,
             target,
@@ -614,6 +617,43 @@ def AssemblyAction(
             out_xml = None,
         )
 
+    analyzer_info = DotnetCSharpAnalyzerInfo(
+        assembly_name = assembly_name,
+        out_dll_name = out_dll.basename,
+        target = target,
+        target_framework = target_framework,
+        project_sdk = project_sdk,
+        srcs = depset(compile_srcs),
+        refs = irefs,
+        framework_files = framework_files,
+        analyzers = compile_analyzers,
+        analyzers_csharp = depset(
+            razor.analyzers if razor else [],
+            transitive = [ref_only_analyzers_csharp],
+        ),
+        analyzer_configs = depset(
+            (razor.configs if razor else []) + analyzer_configs,
+        ),
+        additionalfiles = depset(
+            (razor.additionalfiles if razor else []) + additionalfiles,
+        ),
+        compile_data = depset(compile_data, transitive = [transitive_compile_data]),
+        resources = resources,
+        keyfile = keyfile,
+        langversion = langversion,
+        nullable = nullable,
+        allow_unsafe_blocks = allow_unsafe_blocks,
+        defines = defines,
+        subsystem_version = subsystem_version,
+        warning_level = warning_level,
+        nowarn = nowarn,
+        treat_warnings_as_errors = treat_warnings_as_errors,
+        warnings_as_errors = warnings_as_errors,
+        warnings_not_as_errors = warnings_not_as_errors,
+        compiler_options = compiler_options,
+        interceptors_namespaces = interceptors_namespaces,
+    )
+
     return (DotnetAssemblyCompileInfo(
         name = assembly_name,
         version = version or DEFAULT_ASSEMBLY_VERSION,
@@ -659,7 +699,7 @@ def AssemblyAction(
             for dep in deps
             if not _runs_only_in_the_compiler(dep)
         },
-    ), generated_web_assets)
+    ), generated_web_assets, analyzer_info)
 
 def _compile(
         actions,

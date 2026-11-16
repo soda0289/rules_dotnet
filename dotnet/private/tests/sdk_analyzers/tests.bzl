@@ -7,8 +7,28 @@ The expectations are what MSBuild resolves for the same project (`dotnet msbuild
 """
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
-load("//dotnet:defs.bzl", "csharp_library")
+load("//dotnet:defs.bzl", "DotnetCSharpAnalyzerInfo", "csharp_library")
 load("//dotnet/private/tests:utils.bzl", "only_action")
+
+def _csharp_analyzer_info_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+
+    asserts.true(env, DotnetCSharpAnalyzerInfo in target, "Expected DotnetCSharpAnalyzerInfo provider on C# target")
+    info = target[DotnetCSharpAnalyzerInfo]
+    asserts.equals(env, "web_sdk_analyzers_lib", info.assembly_name)
+    asserts.equals(env, "web_sdk_analyzers_lib.dll", info.out_dll_name)
+    asserts.equals(env, "library", info.target)
+    asserts.equals(env, "net10.0", info.target_framework)
+    asserts.equals(env, "web", info.project_sdk)
+
+    src_basenames = [f.basename for f in info.srcs.to_list()]
+    asserts.true(env, "Sample.cs" in src_basenames, "Expected Sample.cs in info.srcs: {}".format(src_basenames))
+    asserts.true(env, len(info.framework_files.to_list()) > 0, "Expected non-empty framework_files")
+
+    return analysistest.end(env)
+
+csharp_analyzer_info_test = analysistest.make(_csharp_analyzer_info_test_impl)
 
 _NET_ANALYZERS = [
     "Microsoft.CodeAnalysis.NetAnalyzers.dll",
@@ -159,3 +179,8 @@ def sdk_analyzers_tests():
             expected_analyzers = _NET_ANALYZERS,
             unexpected_analyzers = _WEB_ANALYZERS,
         )
+
+    csharp_analyzer_info_test(
+        name = "csharp_analyzer_info_test",
+        target_under_test = ":web_sdk_analyzers_lib",
+    )
