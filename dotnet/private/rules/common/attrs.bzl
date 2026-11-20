@@ -295,6 +295,26 @@ CSHARP_COMMON_ATTRS = dicts.add(
             default = "disable",
             values = ["disable", "enable", "warnings", "annotations"],
         ),
+        "implicit_usings": attr.bool(
+            doc = """Generate the .NET SDK's implicit `global using` directives for this target, matching MSBuild's `ImplicitUsings`.
+
+            The set of namespaces follows `project_sdk` (`"default"`, `"razor"`, `"blazorwasm"`, or `"web"`) and
+            omits `System.Net.Http` on `.NET Framework`, as `Microsoft.NET.Sdk` does. Requires C# 10 or later.""",
+            mandatory = False,
+            default = False,
+        ),
+        "global_usings": attr.string_list(
+            doc = """Additional namespaces to import with `global using`, matching MSBuild's `<Using Include="..." />`.
+
+            May be used on its own or alongside `implicit_usings = True`. Requires C# 10 or later.""",
+            mandatory = False,
+            default = [],
+        ),
+        "excluded_global_usings": attr.string_list(
+            doc = """Namespaces to omit from the generated `global using` directives, matching MSBuild's `<Using Remove="..." />`.""",
+            mandatory = False,
+            default = [],
+        ),
         "run_analyzers": attr.bool(
             doc = "Controls whether analyzers run at build time.",
             mandatory = False,

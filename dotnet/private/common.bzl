@@ -92,6 +92,9 @@ def is_standard_framework(tfm):
 def is_core_framework(tfm):
     return _tfm_family(tfm) == _NETCOREAPP
 
+def is_netframework(tfm):
+    return _tfm_family(tfm) == _NETFRAMEWORK
+
 def is_greater_or_equal_framework(tfm1, tfm2):
     """Returns true if tfm1 is greater or equal to tfm2
 

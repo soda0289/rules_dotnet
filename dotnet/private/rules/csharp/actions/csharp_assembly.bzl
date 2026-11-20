@@ -28,6 +28,7 @@ load(
 )
 load("//dotnet/private/icu:settings.bzl", "globalization_env", "icu_wrapper_arguments")
 load("//dotnet/private/rules/common:resx.bzl", "resx_compile")
+load("//dotnet/private/rules/csharp/actions:global_usings.bzl", "write_global_usings_csharp")
 load(
     "//dotnet/private/rules/csharp/actions:razor.bzl",
     "partition_srcs",
@@ -251,7 +252,10 @@ def AssemblyAction(
         enable_request_delegate_generator = "default",
         enable_configuration_binding_generator = "default",
         publish_trimmed = False,
-        analyzer_runtime_deps = []):
+        analyzer_runtime_deps = [],
+        implicit_usings = False,
+        global_usings = [],
+        excluded_global_usings = []):
     """Creates an action that runs the CSharp compiler with the specified inputs.
 
     This macro aims to match the [C# compiler](https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/compiler-options/listed-alphabetically), with the inputs mapping to compiler options.
@@ -313,6 +317,9 @@ def AssemblyAction(
         enable_configuration_binding_generator: MSBuild's `EnableConfigurationBindingGenerator`: `"true"`, `"false"`, or `"default"`.
         publish_trimmed: Whether a publish trims this assembly, MSBuild's `PublishTrimmed` or `PublishAot`.
         analyzer_runtime_deps: The NuGet packages an analyzer loads, which it also compiles against.
+        implicit_usings: Whether to generate the .NET SDK's implicit `global using` directives.
+        global_usings: Additional namespaces to emit as `global using` directives.
+        excluded_global_usings: Namespaces to exclude from the generated `global using` directives.
     Returns:
         The compile and runtime providers, and the static web assets the compile
         generated.
@@ -466,6 +473,19 @@ def AssemblyAction(
         # source files. The sources exist; they reach csc through the generator.
         if not srcs:
             nowarn = nowarn + ["CS2008"]
+
+    global_usings_cs = write_global_usings_csharp(
+        actions,
+        out_dir = out_dir,
+        assembly_name = assembly_name,
+        project_sdk = project_sdk,
+        target_framework = target_framework,
+        implicit_usings = implicit_usings,
+        global_usings = global_usings,
+        excluded_global_usings = excluded_global_usings,
+    )
+    if global_usings_cs:
+        srcs = srcs + [global_usings_cs]
 
     assembly_version_cs = _write_assembly_version_csharp(actions, target_name, assembly_name, version)
     if assembly_version_cs:
