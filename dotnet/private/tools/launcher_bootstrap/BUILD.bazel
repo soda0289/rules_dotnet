@@ -1,0 +1,24 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load(":rule.bzl", "launcher_bootstrap_assembly")
+
+launcher_bootstrap_assembly(
+    name = "launcher_bootstrap",
+    srcs = ["Program.cs"],
+    target_frameworks = ["net6.0"],
+    visibility = ["//visibility:public"],
+)
+
+bzl_library(
+    name = "rule",
+    srcs = ["rule.bzl"],
+    visibility = ["//dotnet:__subpackages__"],
+    deps = [
+        "//dotnet/private:common",
+        "//dotnet/private:toolchains_repo",
+        "//dotnet/private/rules/csharp/actions:csharp_assembly",
+        "//dotnet/private/sdk:packs",
+        "//dotnet/private/sdk/targeting_packs:targeting_pack_transition",
+        "//dotnet/private/transitions:bootstrap_tool_transition",
+        "@bazel_skylib//rules:common_settings",
+    ],
+)

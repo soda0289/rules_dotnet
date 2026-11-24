@@ -1,7 +1,9 @@
 """Rule that allows running .NET command-line tools hermetically within Bazel."""
 
-load("//dotnet/private:common.bzl", "get_nearest_compatible_target_framework", "get_toolchain", "to_rlocation_path")
-load("//dotnet/private/icu:settings.bzl", "icu_files", "icu_launcher_environment")
+load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load("//dotnet/private:common.bzl", "get_nearest_compatible_target_framework", "get_toolchain")
+load("//dotnet/private:launcher.bzl", "LAUNCHER_ATTRS", "LAUNCHER_TOOLCHAINS", "create_launcher")
+load("//dotnet/private/icu:settings.bzl", "icu_files")
 
 DotnetToolInfo = provider(
     doc = "Provider for grouping .NET tools by target framework.",
@@ -10,7 +12,7 @@ DotnetToolInfo = provider(
     },
 )
 
-def _tool_executable(ctx, files, entrypoint):
+def _tool_executable(files, entrypoint):
     """Finds the assembly a tool's settings file names.
 
     `entrypoint` is a bare file name, resolved against the folder holding the
@@ -19,12 +21,11 @@ def _tool_executable(ctx, files, entrypoint):
     shipped, which is not always the one the tool resolved to.
 
     Args:
-      ctx: The rule context.
       files: The files the package ships for the resolved framework.
       entrypoint: The file name the settings file names.
 
     Returns:
-      The rlocation path of the entrypoint, or None when it is not shipped.
+      The entrypoint File, or None when it is not shipped.
     """
     directory = None
 
@@ -35,7 +36,7 @@ def _tool_executable(ctx, files, entrypoint):
 
     for file in files:
         if file.dirname == directory and file.basename == entrypoint:
-            return to_rlocation_path(ctx, file)
+            return file
 
     return None
 
@@ -61,31 +62,28 @@ def _dotnet_tool_impl(ctx):
     if filegroup == None:
         fail("Tool {} does not provide files for the target framework: {}".format(ctx.attr.name, framework))
 
-    executable = _tool_executable(ctx, filegroup[DefaultInfo].files.to_list(), entrypoint)
+    executable = _tool_executable(filegroup[DefaultInfo].files.to_list(), entrypoint)
     if executable == None:
         fail("Tool {} does not ship its entrypoint '{}' for the target framework: {}".format(ctx.attr.name, entrypoint, framework))
 
-    is_windows = ctx.target_platform_has_constraint(ctx.attr._windows_constraint[platform_common.ConstraintValueInfo])
-    launcher = ctx.actions.declare_file("{}.{}".format(ctx.label.name, "bat" if is_windows else "sh"))
-    ctx.actions.expand_template(
-        template = ctx.file._launcher_bat if is_windows else ctx.file._launcher_sh,
-        output = launcher,
-        substitutions = {
-            "TEMPLATED_dotnet": to_rlocation_path(ctx, runtime.files_to_run.executable),
-            "TEMPLATED_executable": executable,
-            "TEMPLATED_environment": icu_launcher_environment(ctx, toolchain, is_windows),
-        },
-        is_executable = True,
+    compiled_launcher = create_launcher(
+        ctx,
+        output_stem = "{}/{}".format(ctx.label.name, ctx.label.name),
+        config_name = "{}/launch.json".format(ctx.label.name),
+        dotnet = runtime.files_to_run.executable,
+        assembly = executable,
+        toolchain = toolchain,
+        use_build_working_directory = True,
+        roll_forward = "Major",
     )
 
     runfiles = ctx.runfiles(transitive_files = depset(
         transitive = [filegroup[DefaultInfo].files, dotnet_info.runtime_files, icu_files(toolchain)],
-    ))
-    runfiles = runfiles.merge(ctx.attr._bash_runfiles[DefaultInfo].default_runfiles)
+    )).merge(compiled_launcher.runfiles)
 
     return [
         DefaultInfo(
-            executable = launcher,
+            executable = compiled_launcher.executable,
             runfiles = runfiles,
         ),
     ]
@@ -107,7 +105,7 @@ Prefer adding the tool to `paket.dependencies`: every dotnet tool in a
 dependency group is then available as `@paket.<group>//<package>/tools:<command>`
 without declaring this rule.
 """,
-    attrs = {
+    attrs = dicts.add(LAUNCHER_ATTRS, {
         "target_frameworks": attr.string_list(
             doc = "The frameworks the package ships the tool for. The newest one no newer than the toolchain's runtime is used.",
             mandatory = True,
@@ -125,18 +123,6 @@ without declaring this rule.
             providers = [DotnetToolInfo],
             doc = "The `tools` target of the package's `nuget_archive`.",
         ),
-        "_launcher_sh": attr.label(
-            doc = "A template file for the launcher on Linux/MacOS",
-            default = "//dotnet/private:tool_launcher.sh.tpl",
-            allow_single_file = True,
-        ),
-        "_launcher_bat": attr.label(
-            doc = "A template file for the launcher on Windows",
-            default = "//dotnet/private:tool_launcher.bat.tpl",
-            allow_single_file = True,
-        ),
-        "_bash_runfiles": attr.label(default = "@rules_shell//shell/runfiles"),
-        "_windows_constraint": attr.label(default = "@platforms//os:windows"),
-    },
-    toolchains = ["//dotnet/toolchain:toolchain_type"],
+    }),
+    toolchains = ["//dotnet/toolchain:toolchain_type"] + LAUNCHER_TOOLCHAINS,
 )

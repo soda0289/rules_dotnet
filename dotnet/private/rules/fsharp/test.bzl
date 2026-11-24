@@ -14,6 +14,7 @@ load(
     "is_debug",
     "targets_windows",
 )
+load("//dotnet/private:launcher.bzl", "LAUNCHER_TOOLCHAINS")
 load("//dotnet/private/rules/common:attrs.bzl", "FSHARP_BINARY_COMMON_ATTRS")
 load("//dotnet/private/rules/common:binary.bzl", "BINARY_OUTPUT_GROUPS_DOC", "build_binary")
 load("//dotnet/private/rules/common:resx.bzl", "split_resources")
@@ -77,6 +78,6 @@ fsharp_test = rule(
     test = True,
     toolchains = [
         "//dotnet/toolchain:toolchain_type",
-    ],
+    ] + LAUNCHER_TOOLCHAINS,
     cfg = tfm_transition,
 )

@@ -31,6 +31,7 @@ use_repo(paket, "paket.paket_cli", "paket.rules_dotnet_nuget_packages")
 bazel_dep(name = "bazel_skylib", version = "1.8.1")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "bazel_lib", version = "3.0.0")
+bazel_dep(name = "hermetic_launcher", version = "0.0.17")
 bazel_dep(name = "rules_shell", version = "0.5.0")
 
 # `publish_binary` links a NativeAOT publish with the cc toolchain APIs.

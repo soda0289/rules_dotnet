@@ -10,6 +10,7 @@ As in `dotnet build`, nothing is trimmed and symbols are shipped.
 """
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load("//dotnet/private:launcher.bzl", "LAUNCHER_TOOLCHAINS")
 load(
     "//dotnet/private:providers.bzl",
     "BlazorWasmInfo",
@@ -82,5 +83,5 @@ blazor_wasm_binary = rule(
             default = "Development",
         ),
     }),
-    toolchains = ["//dotnet/toolchain:toolchain_type"],
+    toolchains = ["//dotnet/toolchain:toolchain_type"] + LAUNCHER_TOOLCHAINS,
 )

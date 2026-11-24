@@ -8,7 +8,7 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//dotnet/private/icu:settings.bzl", "ICU_VERSION_VARIABLES")
 load("//dotnet/private/icu:sources.bzl", "ICU_MAJOR_VERSION")
-load("//dotnet/private/tests:utils.bzl", "launcher_environment", "only_action", "runs_with_settings_test")
+load("//dotnet/private/tests:utils.bzl", "launcher_config", "only_action", "runs_with_settings_test")
 
 _HERMETIC_ICU = {str(Label("//dotnet/settings:icu")): str(Label("//dotnet/settings:hermetic_icu"))}
 
@@ -33,18 +33,18 @@ compile_env_test = analysistest.make(
 def _launcher_test_impl(ctx):
     env = analysistest.begin(ctx)
 
-    block = launcher_environment(env)
+    config = launcher_config(env)
     asserts.true(
         env,
-        "LD_LIBRARY_PATH" in block and "libicuuc.so." + ICU_MAJOR_VERSION in block,
-        "The launcher does not put the ICU on the loader's path: " + block,
+        config["icu_lib"].endswith("/libicuuc.so." + ICU_MAJOR_VERSION),
+        "The launcher does not put the ICU on the loader's path: {}".format(config),
     )
-    for variable in ICU_VERSION_VARIABLES:
-        asserts.true(
-            env,
-            '{}="{}"'.format(variable, ICU_MAJOR_VERSION) in block,
-            "The launcher does not set {}: {}".format(variable, block),
-        )
+    asserts.equals(
+        env,
+        ICU_MAJOR_VERSION,
+        config["icu_version"],
+        "The launcher does not set the ICU version: {}".format(config),
+    )
     return analysistest.end(env)
 
 launcher_test = analysistest.make(

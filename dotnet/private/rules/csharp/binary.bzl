@@ -16,6 +16,7 @@ load(
     "resolve_enforce_code_style_in_build",
     "targets_windows",
 )
+load("//dotnet/private:launcher.bzl", "LAUNCHER_TOOLCHAINS")
 load("//dotnet/private:toolchains_repo.bzl", "BOOTSTRAP_TOOLCHAIN_TYPE", "DOTNET_TOOLCHAIN_TYPE")
 load("//dotnet/private/rules/common:attrs.bzl", "CSHARP_BINARY_COMMON_ATTRS", "WINEXE_ATTRS")
 load("//dotnet/private/rules/common:binary.bzl", "BINARY_OUTPUT_GROUPS_DOC", "build_binary")
@@ -122,7 +123,7 @@ def _bootstrap_binary_impl(ctx):
 _BOOTSTRAP_TOOLCHAINS = [
     BOOTSTRAP_TOOLCHAIN_TYPE,
     config_common.toolchain_type(DOTNET_TOOLCHAIN_TYPE, mandatory = False),
-]
+] + LAUNCHER_TOOLCHAINS
 
 _BINARY_ATTRS = dicts.add(
     CSHARP_BINARY_COMMON_ATTRS,
@@ -150,7 +151,7 @@ csharp_binary = rule(
     executable = True,
     toolchains = [
         "//dotnet/toolchain:toolchain_type",
-    ],
+    ] + LAUNCHER_TOOLCHAINS,
     cfg = tfm_transition,
 )
 

@@ -18,8 +18,9 @@ load(
     "targets_windows",
     "to_rlocation_path",
 )
+load("//dotnet/private:launcher.bzl", "create_launcher")
 load("//dotnet/private:providers.bzl", "DotnetApphostPackInfo", "DotnetAssemblyRuntimeInfo", "DotnetBinaryInfo", "DotnetNativeToolsInfo", "DotnetRuntimePackInfo", "DotnetTargetingPackInfo")
-load("//dotnet/private/icu:settings.bzl", "icu_files", "icu_launcher_environment")
+load("//dotnet/private/icu:settings.bzl", "icu_files")
 load("//dotnet/private/rules/common:netfx.bzl", "satellite_path", "stage_netfx_application")
 load(
     "//dotnet/private/rules/common:static_web_assets.bzl",
@@ -32,10 +33,9 @@ load("//dotnet/private/rules/ready_to_run:ready_to_run.bzl", "with_ready_to_run_
 load("//dotnet/private/sdk:packs.bzl", "resolve_framework_references")
 
 def _create_launcher(ctx, is_windows, executable, toolchain, tfm):
-    launcher = ctx.actions.declare_file("{}.{}".format(executable.basename, "bat" if is_windows else "sh"), sibling = executable)
-
     if is_netframework(tfm):
         # No .NET host. Outside Windows the launcher reports it cannot run.
+        launcher = ctx.actions.declare_file("{}.{}".format(executable.basename, "bat" if is_windows else "sh"), sibling = executable)
         ctx.actions.expand_template(
             template = ctx.file._launcher_netfx_bat if is_windows else ctx.file._launcher_netfx_sh,
             output = launcher,
@@ -46,20 +46,19 @@ def _create_launcher(ctx, is_windows, executable, toolchain, tfm):
             },
             is_executable = True,
         )
-        return launcher
+        return struct(executable = launcher, runfiles = ctx.runfiles())
 
-    ctx.actions.expand_template(
-        template = ctx.file._launcher_bat if is_windows else ctx.file._launcher_sh,
-        output = launcher,
-        substitutions = {
-            "TEMPLATED_dotnet": to_rlocation_path(ctx, toolchain.runtime.files_to_run.executable),
-            "TEMPLATED_executable": to_rlocation_path(ctx, executable),
-            "TEMPLATED_environment": icu_launcher_environment(ctx, toolchain, is_windows),
-        },
-        is_executable = True,
+    stem = executable.basename[:-len(".dll")] if executable.basename.endswith(".dll") else executable.basename
+    return create_launcher(
+        ctx,
+        output_stem = stem,
+        config_name = "{}/{}.launch.json".format(ctx.label.name, tfm),
+        dotnet = toolchain.runtime.files_to_run.executable,
+        assembly = executable,
+        toolchain = toolchain,
+        sibling = executable,
+        probe_runfiles = True,
     )
-
-    return launcher
 
 # Appended to the documentation of every rule that `build_binary` implements.
 BINARY_OUTPUT_GROUPS_DOC = """
@@ -327,7 +326,8 @@ def build_binary(ctx, compile_action, toolchain, runtime_toolchain = None, winex
     dll = runtime_provider.libs[0]
     assembly_name = runtime_provider.name
     out_dir = "{}/{}".format(ctx.label.name, tfm)
-    launcher = _create_launcher(ctx, is_windows, dll, runtime_toolchain, tfm)
+    compiled_launcher = _create_launcher(ctx, is_windows, dll, runtime_toolchain, tfm)
+    launcher = compiled_launcher.executable
 
     # Everything staged next to the assembly is a runfile as well as an output,
     # so that it is there when the binary runs from an isolated runfiles tree.
@@ -376,8 +376,7 @@ def build_binary(ctx, compile_action, toolchain, runtime_toolchain = None, winex
         (toolchain.msbuild_dlls if getattr(ctx.attr, "include_msbuild_dlls", False) else [])
     )
 
-    # .NET Framework runs on the framework installed in Windows, and its
-    # launcher needs no Bash runfiles library.
+    # .NET Framework runs on the framework installed in Windows.
     runtime = [] if is_netfx else [runtime_toolchain.dotnetinfo.runtime_files, icu_files(runtime_toolchain)]
     runfiles = collect_transitive_runfiles(ctx, runtime_provider, ctx.attr.deps).merge_all([
         ctx.runfiles(
@@ -386,7 +385,8 @@ def build_binary(ctx, compile_action, toolchain, runtime_toolchain = None, winex
         ),
         ctx.runfiles(files = [lib for dep in from_toolchain for lib in dep[DotnetAssemblyRuntimeInfo].libs]),
         ctx.runfiles(files = native_libraries + served),
-    ] + ([] if is_windows or is_netfx else [ctx.attr._bash_runfiles[DefaultInfo].default_runfiles]))
+        compiled_launcher.runfiles,
+    ])
 
     return [
         DefaultInfo(

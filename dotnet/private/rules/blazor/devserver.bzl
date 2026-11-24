@@ -11,9 +11,11 @@ manifest beside it and the served directory under the content root. Neither has
 to be where the application was built, so this stages the two it needs.
 """
 
-load("//dotnet/private:common.bzl", "get_toolchain", "targets_windows", "to_rlocation_path")
+load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load("//dotnet/private:common.bzl", "get_toolchain")
+load("//dotnet/private:launcher.bzl", "LAUNCHER_ATTRS", "LAUNCHER_TOOLCHAINS", "create_launcher")
 load("//dotnet/private:providers.bzl", "BlazorWasmSiteInfo")
-load("//dotnet/private/icu:settings.bzl", "icu_files", "icu_launcher_environment")
+load("//dotnet/private/icu:settings.bzl", "icu_files")
 load(":common.bzl", "only")
 
 def devserver_launcher(ctx, site):
@@ -42,21 +44,15 @@ def devserver_launcher(ctx, site):
     toolchain = get_toolchain(ctx)
     dotnet = toolchain.runtime.files_to_run.executable
 
-    is_windows = targets_windows(ctx)
-    launcher = ctx.actions.declare_file(
-        "{}{}".format(ctx.label.name, ".bat" if is_windows else ".sh"),
-    )
-    ctx.actions.expand_template(
-        template = ctx.file._devserver_bat if is_windows else ctx.file._devserver_sh,
-        output = launcher,
-        substitutions = {
-            "TEMPLATED_dotnet": to_rlocation_path(ctx, dotnet),
-            "TEMPLATED_devserver": to_rlocation_path(ctx, devserver),
-            "TEMPLATED_application": to_rlocation_path(ctx, application),
-            "TEMPLATED_wwwroot": to_rlocation_path(ctx, site.wwwroot),
-            "TEMPLATED_environment": icu_launcher_environment(ctx, toolchain, is_windows),
-        },
-        is_executable = True,
+    compiled_launcher = create_launcher(
+        ctx,
+        output_stem = "{}/devserver".format(ctx.label.name),
+        config_name = "{}/launch.json".format(ctx.label.name),
+        dotnet = dotnet,
+        assembly = devserver,
+        toolchain = toolchain,
+        application = application,
+        wwwroot = site.wwwroot,
     )
 
     runfiles = ctx.runfiles(
@@ -66,31 +62,17 @@ def devserver_launcher(ctx, site):
             toolchain.runtime.files,
             icu_files(toolchain),
         ]),
-    ).merge(
-        # The launcher resolves its runfiles with Bazel's own bash library,
-        # which is carried as runfiles rather than as files.
-        ctx.attr._bash_runfiles[DefaultInfo].default_runfiles,
-    )
+    ).merge(compiled_launcher.runfiles)
 
-    return struct(launcher = launcher, runfiles = runfiles)
+    return struct(launcher = compiled_launcher.executable, runfiles = runfiles)
 
-DEVSERVER_ATTRS = {
+DEVSERVER_ATTRS = dicts.add(LAUNCHER_ATTRS, {
     "_devserver": attr.label(
         default = "//dotnet/private:devserver",
         allow_files = True,
         cfg = "exec",
     ),
-    "_devserver_sh": attr.label(
-        default = "//dotnet/private:devserver.sh.tpl",
-        allow_single_file = True,
-    ),
-    "_devserver_bat": attr.label(
-        default = "//dotnet/private:devserver.bat.tpl",
-        allow_single_file = True,
-    ),
-    "_bash_runfiles": attr.label(default = "@bazel_tools//tools/bash/runfiles"),
-    "_windows_constraint": attr.label(default = "@platforms//os:windows"),
-}
+})
 
 def _blazor_devserver_impl(ctx):
     served = devserver_launcher(ctx, ctx.attr.app[BlazorWasmSiteInfo])
@@ -131,5 +113,5 @@ blazor_devserver(
         providers = [BlazorWasmSiteInfo],
         mandatory = True,
     )),
-    toolchains = ["//dotnet/toolchain:toolchain_type"],
+    toolchains = ["//dotnet/toolchain:toolchain_type"] + LAUNCHER_TOOLCHAINS,
 )

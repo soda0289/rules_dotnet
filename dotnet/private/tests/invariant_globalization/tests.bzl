@@ -7,13 +7,9 @@ of a binary built under it.
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//dotnet/private/icu:settings.bzl", "INVARIANT_GLOBALIZATION_VARIABLE")
-load("//dotnet/private/tests:utils.bzl", "launcher_environment", "only_action", "runs_with_settings_test")
+load("//dotnet/private/tests:utils.bzl", "launcher_config", "only_action", "runs_with_settings_test")
 
 _FLAG = str(Label("//dotnet/settings:invariant_globalization"))
-
-# What a launcher sets on each platform: a default the environment can override.
-_SH_LINE = 'export {v}="${{{v}:-1}}"'.format(v = INVARIANT_GLOBALIZATION_VARIABLE)
-_BAT_LINE = "if not defined {v} set {v}=1".format(v = INVARIANT_GLOBALIZATION_VARIABLE)
 
 _COMPILE_ENV_ATTRS = {
     "expected": attr.string(
@@ -50,15 +46,13 @@ compile_env_without_flag_test = analysistest.make(
 def _launcher_test_impl(ctx):
     env = analysistest.begin(ctx)
 
-    line = launcher_environment(env)
-    if ctx.attr.expect_line:
-        asserts.true(
-            env,
-            line in [_SH_LINE, _BAT_LINE],
-            "The launcher line '{}' is neither '{}' nor '{}'".format(line, _SH_LINE, _BAT_LINE),
-        )
-    else:
-        asserts.equals(env, "", line, "The launcher line")
+    config = launcher_config(env)
+    asserts.equals(
+        env,
+        ctx.attr.expect_line,
+        config["invariant_globalization"],
+        "invariant_globalization in the launcher config",
+    )
     return analysistest.end(env)
 
 _LAUNCHER_ATTRS = {

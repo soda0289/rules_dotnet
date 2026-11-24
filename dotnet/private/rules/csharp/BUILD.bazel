@@ -8,6 +8,7 @@ bzl_library(
     ],
     deps = [
         "//dotnet/private:common",
+        "//dotnet/private:launcher",
         "//dotnet/private:toolchains_repo",
         "//dotnet/private/rules/common:attrs",
         "//dotnet/private/rules/common:binary",
@@ -48,6 +49,7 @@ bzl_library(
     ],
     deps = [
         "//dotnet/private:common",
+        "//dotnet/private:launcher",
         "//dotnet/private/rules/common:attrs",
         "//dotnet/private/rules/common:binary",
         "//dotnet/private/rules/common:resx",

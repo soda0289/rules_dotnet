@@ -169,22 +169,21 @@ def only_action(env, mnemonic):
         fail("Expected one {} action, found {}".format(mnemonic, len(matching)))
     return matching[0]
 
-def launcher_environment(env):
-    """The environment block a target's launcher template is expanded with.
+def launcher_config(env):
+    """The decoded JSON configuration written for a target's launcher.
 
     Args:
         env: The `analysistest` environment.
 
     Returns:
-        The `TEMPLATED_environment` substitution, failing when the target
-        expands no launcher.
+        A dict decoded from the target's `.launch.json` file write action.
     """
 
     for action in analysistest.target_actions(env):
-        substitutions = action.substitutions
-        if substitutions and "TEMPLATED_environment" in substitutions:
-            return substitutions["TEMPLATED_environment"]
-    fail("No launcher expansion among the target's actions")
+        outputs = action.outputs.to_list()
+        if action.content != None and len(outputs) == 1 and outputs[0].basename.endswith("launch.json"):
+            return json.decode(action.content)
+    fail("No launcher configuration write among the target's actions")
 
 def runs_with_settings_test(settings):
     """A test rule that runs a binary built with the given build settings.

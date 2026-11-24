@@ -108,37 +108,25 @@ def icu_wrapper_arguments(actions, toolchain):
     arguments.add(library, format = "--icu=%s")
     return [arguments], [toolchain.exec_icu[DefaultInfo].files]
 
-def icu_launcher_environment(ctx, toolchain, is_windows):
-    """The lines a launcher runs before the runtime, applying the globalization settings.
+def icu_launcher_config(ctx, toolchain, is_windows):
+    """Globalization settings written into a target's launcher configuration.
 
     A launcher starts the binaries and tests as well as the tools of a build.
-    The invariant line only supplies a default, so a value already in the
+    The invariant setting only supplies a default, so a value already in the
     environment, such as one from `envs` or `--test_env`, wins. Only Linux loads
-    ICU from shared libraries, so a batch file gets no ICU lines.
+    ICU from shared libraries, so Windows launchers carry no ICU library.
 
     Args:
         ctx: The rule context, for the runfiles path of the libraries.
         toolchain: The resolved .Net toolchain.
-        is_windows: Whether the launcher is a batch file.
+        is_windows: Whether the launcher targets Windows.
 
     Returns:
-        The text to substitute for `TEMPLATED_environment`, empty unless a
-        setting applies.
+        A struct of `invariant_globalization`, `icu_lib`, and `icu_version`.
     """
-
-    lines = []
-    if toolchain.invariant_globalization[BuildSettingInfo].value:
-        if is_windows:
-            lines.append("if not defined {v} set {v}=1".format(v = INVARIANT_GLOBALIZATION_VARIABLE))
-        else:
-            lines.append('export {v}="${{{v}:-1}}"'.format(v = INVARIANT_GLOBALIZATION_VARIABLE))
-
     library = None if is_windows else _icu_library(toolchain.icu)
-    if library != None:
-        lines.append('export LD_LIBRARY_PATH="$(dirname "$(rlocation {})")${{LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}}"'.format(
-            to_rlocation_path(ctx, library),
-        ))
-        for variable in ICU_VERSION_VARIABLES:
-            lines.append('export {}="{}"'.format(variable, _icu_version(library)))
-
-    return "\n".join(lines)
+    return struct(
+        invariant_globalization = toolchain.invariant_globalization[BuildSettingInfo].value,
+        icu_lib = to_rlocation_path(ctx, library) if library != None else "",
+        icu_version = _icu_version(library) if library != None else "",
+    )

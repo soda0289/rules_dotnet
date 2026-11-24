@@ -1,6 +1,7 @@
 "The attributes of the C# and F# binary, library and test rules."
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load("//dotnet/private:launcher.bzl", "LAUNCHER_ATTRS")
 load("//dotnet/private:providers.bzl", "DotnetAssemblyCompileInfo", "DotnetAssemblyRuntimeInfo")
 load("//dotnet/private/rules/common:static_web_assets.bzl", "STATIC_WEB_ASSETS_ATTRS")
 load("//dotnet/private/rules/ready_to_run:ready_to_run.bzl", "READY_TO_RUN_ATTRS")
@@ -250,7 +251,7 @@ WINEXE_ATTRS = {
 }
 
 # These are attributes that are common across all binary/test rules
-BINARY_COMMON_ATTRS = dicts.add(STATIC_WEB_ASSETS_ATTRS, {
+BINARY_COMMON_ATTRS = dicts.add(STATIC_WEB_ASSETS_ATTRS, LAUNCHER_ATTRS, {
     # Binaries override this with `WINEXE_ATTRS`; tests are always console executables.
     "winexe": attr.bool(
         doc = "Has no effect on tests.",
@@ -293,19 +294,6 @@ Has no effect on .NET.""",
         doc = "Names of environment variables to pass through from the environment that " +
               "`bazel run` or `bazel test` is invoked in.",
         default = [],
-    ),
-    "_bash_runfiles": attr.label(
-        default = "@rules_shell//shell/runfiles",
-    ),
-    "_launcher_sh": attr.label(
-        doc = "A template file for the launcher on Linux/MacOS",
-        default = "//dotnet/private:launcher.sh.tpl",
-        allow_single_file = True,
-    ),
-    "_launcher_bat": attr.label(
-        doc = "A template file for the launcher on Windows",
-        default = "//dotnet/private:launcher.bat.tpl",
-        allow_single_file = True,
     ),
     "_launcher_netfx_sh": attr.label(
         doc = "A template file for the launcher of a .NET Framework executable on Linux/MacOS",

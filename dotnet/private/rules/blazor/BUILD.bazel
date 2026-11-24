@@ -33,8 +33,10 @@ bzl_library(
     deps = [
         ":common",
         "//dotnet/private:common",
+        "//dotnet/private:launcher",
         "//dotnet/private:providers",
         "//dotnet/private/icu:settings",
+        "@bazel_skylib//lib:dicts",
     ],
 )
 
@@ -45,6 +47,7 @@ bzl_library(
     deps = [
         ":common",
         ":devserver",
+        "//dotnet/private:launcher",
         "//dotnet/private:providers",
         "//dotnet/private/transitions:tfm_transition",
         "@bazel_skylib//lib:dicts",

@@ -10,11 +10,13 @@ csharp_test(
     args = [
         "'--output=D:\\temp\\out'",
         "'a\\b'",
+        "'trailing\\slash\\'",
         "\"a b\"",
-        "\"x ^ y\"",
-        # cmd.exe counts the escaped quote in `"a\"b"` as a quote, so this must
-        # come last: a caret after it would be outside quotes for cmd.
         "'a\"b'",
+        "\"x ^ y\"",
+        "'!delayed!expansion!'",
+        "'%PATH%'",
+        "''",
     ],
     target_frameworks = ["net6.0"],
 )

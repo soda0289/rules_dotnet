@@ -44,14 +44,14 @@ public class CompilerWorkersTest
         string FromToolchain(string variable) =>
             runfiles.Rlocation(Environment.GetEnvironmentVariable(variable)!.Replace("external/", ""));
 
-        // A worker's runfiles path is its launcher's, `<name>.dll.sh` or
-        // `<name>.dll.bat`, and the assembly is beside it.
+        // A worker's launcher (`<name>` or `<name>.exe`) sits beside `<name>.dll`.
         string WorkerDll(string variable)
         {
             var launcher = Environment.GetEnvironmentVariable(variable)!;
-            var assembly = launcher[..launcher.LastIndexOf('.')];
-            Assert.That(assembly, Does.EndWith(".dll"));
-            return runfiles.Rlocation(assembly);
+            var stem = launcher.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                ? launcher[..^".exe".Length]
+                : launcher;
+            return runfiles.Rlocation(stem + ".dll");
         }
 
         _dotnet = FromToolchain("DOTNET_BIN");

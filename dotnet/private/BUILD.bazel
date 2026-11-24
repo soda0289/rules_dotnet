@@ -13,20 +13,26 @@ load("//dotnet/private/sdk:tool_pack.bzl", "host_tool_pack")
 
 exports_files(
     [
-        "launcher.sh.tpl",
-        "launcher.bat.tpl",
         "launcher_netfx.sh.tpl",
         "launcher_netfx.bat.tpl",
-        "tool_launcher.sh.tpl",
-        "tool_launcher.bat.tpl",
-        "devserver.sh.tpl",
-        "devserver.bat.tpl",
         "nuget_push.sh.tpl",
         "nuget_push.bat.tpl",
         "compiler_wrapper.sh",
         "compiler_wrapper.bat",
     ],
     visibility = ["//visibility:public"],
+)
+
+bzl_library(
+    name = "launcher",
+    srcs = ["launcher.bzl"],
+    visibility = ["//dotnet:__subpackages__"],
+    deps = [
+        ":common",
+        "//dotnet/private/icu:settings",
+        "//dotnet/private/tools/launcher_bootstrap:rule",
+        "@hermetic_launcher//launcher:lib_bzl",
+    ],
 )
 
 bzl_library(

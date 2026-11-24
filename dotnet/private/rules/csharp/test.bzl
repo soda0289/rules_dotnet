@@ -17,6 +17,7 @@ load(
     "resolve_enforce_code_style_in_build",
     "targets_windows",
 )
+load("//dotnet/private:launcher.bzl", "LAUNCHER_TOOLCHAINS")
 load("//dotnet/private/rules/common:attrs.bzl", "CSHARP_BINARY_COMMON_ATTRS")
 load("//dotnet/private/rules/common:binary.bzl", "BINARY_OUTPUT_GROUPS_DOC", "build_binary")
 load("//dotnet/private/rules/common:resx.bzl", "split_resources")
@@ -101,6 +102,6 @@ csharp_test = rule(
     test = True,
     toolchains = [
         "//dotnet/toolchain:toolchain_type",
-    ],
+    ] + LAUNCHER_TOOLCHAINS,
     cfg = tfm_transition,
 )

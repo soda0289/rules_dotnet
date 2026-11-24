@@ -79,6 +79,8 @@ bzl_library(
     ],
     deps = [
         "//dotnet/private:common",
+        "//dotnet/private:launcher",
         "//dotnet/private/icu:settings",
+        "@bazel_skylib//lib:dicts",
     ],
 )
